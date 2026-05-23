@@ -39,6 +39,10 @@ dependencyResolutionManagement {
         maven {
             url = uri("${flutterSdkPath}/bin/cache/artifacts/engine/android")
         }
+        // Fallback to Flutter's hosted maven repository when local engine artifacts are missing
+        maven {
+            url = uri('https://storage.googleapis.com/download.flutter.io')
+        }
     }
 }
 
