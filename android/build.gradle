@@ -6,16 +6,6 @@ if (localPropertiesFile.exists()) {
 def flutterRoot = localProperties.getProperty('flutter.sdk') ?: System.getenv('FLUTTER_ROOT')
 assert flutterRoot != null, "flutter.sdk not set in local.properties and FLUTTER_ROOT is not defined"
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven {
-            url = uri("${flutterRoot}/bin/cache/artifacts/engine/android")
-        }
-    }
-}
-
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
