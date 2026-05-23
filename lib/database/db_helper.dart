@@ -282,8 +282,7 @@ class DbHelper {
     final db = await database;
     final now = DateTime.now();
     final cutoff = DateTime(now.year, now.month - 11, 1);
-    
-        '${cutoff.month.toString().padLeft(2, '0')}-${cutoff.year}';
+
 
     // Get months older than 12 months
     final oldMonths = await db.rawQuery('''
