@@ -34,13 +34,16 @@ ThemeData buildAppTheme() {
       ),
       iconTheme: const IconThemeData(color: kWhite),
     ),
-    dialogTheme: const DialogTheme(
+    dialogTheme: const DialogThemeData(
       backgroundColor: kBgColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: kBgColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+    ),
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: kWhite,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -59,7 +62,6 @@ ThemeData buildAppTheme() {
       focusedErrorBorder: const UnderlineInputBorder(
         borderSide: BorderSide(color: kRed, width: 1),
       ),
-      cursorColor: kWhite,
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
