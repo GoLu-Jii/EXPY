@@ -1,33 +1,17 @@
-# EXPY — Terminal Finance Tracker
+markdown_content = """# EXPY — Terminal Finance Tracker
 
-## Build Instructions
+[![Download EXPY APK](https://img.shields.io/badge/Download-EXPY%20APK-brightgreen?style=for-the-badge&logo=android)](https://github.com/GoLu-Jii/EXPY/releases/latest/download/EXPY-V-0.1.0.apk)
 
-### Option A: Codemagic (No PC needed)
-1. Go to https://codemagic.io
-2. Sign up free with GitHub/Google
-3. Click "Add application" → upload this zip
-4. Select Flutter → Android
-5. Start build → download APK when done
+EXPY is a 100% offline, terminal-themed personal finance tracker. It allows you to track monthly budgets, categorize spending, manage peer debts (to give / to take) with carry-forward, and maintain a separate savings pocket without needing an internet connection or cloud sync.
 
-### Option B: Local PC
-Requirements: Flutter SDK, Android Studio (for SDK)
+## Installation
 
-```bash
-flutter pub get
-flutter build apk --release
-```
+1. Download the `EXPY-V-0.1.0.apk` using the download button above on your Android device.
+2. Tap the downloaded file to install it.
+3. If prompted, enable "Allow installation from unknown sources" in your device settings.
+"""
 
-APK output: `build/app/outputs/flutter-apk/app-release.apk`
+with open('README.md', 'w', encoding='utf-8') as f:
+    f.write(markdown_content)
 
-### Install on Phone
-- Transfer APK to phone via USB / WhatsApp / Google Drive
-- Enable "Install from unknown sources" in Settings → Security
-- Tap the APK file to install
-
-## App Features
-- Monthly budget tracking
-- Spending classes / categories
-- Peer debt ledger (TO GIVE / TO TAKE) with carry-forward
-- Savings pocket (separate from spending)
-- 100% offline, no internet needed
-- Pure terminal aesthetic
+print("README.md generated successfully.")
