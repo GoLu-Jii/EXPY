@@ -9,9 +9,3 @@ EXPY is a 100% offline, terminal-themed personal finance tracker. It allows you 
 1. Download the `EXPY-V-0.1.0.apk` using the download button above on your Android device.
 2. Tap the downloaded file to install it.
 3. If prompted, enable "Allow installation from unknown sources" in your device settings.
-"""
-
-with open('README.md', 'w', encoding='utf-8') as f:
-    f.write(markdown_content)
-
-print("README.md generated successfully.")
