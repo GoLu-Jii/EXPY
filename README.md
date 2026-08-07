@@ -1,4 +1,4 @@
-markdown_content = """# EXPY — Terminal Finance Tracker
+# EXPY — Your Personal Finance Tracker
 
 [![Download EXPY APK](https://img.shields.io/badge/Download-EXPY%20APK-brightgreen?style=for-the-badge&logo=android)](https://github.com/GoLu-Jii/EXPY/releases/latest/download/EXPY-V-0.1.0.apk)
 
