@@ -25,8 +25,9 @@ class DbHelper {
     final path = join(dbPath, 'expy.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -63,8 +64,6 @@ class DbHelper {
         entity_name TEXT NOT NULL,
         amount REAL NOT NULL,
         type TEXT NOT NULL,
-        is_settled INTEGER NOT NULL DEFAULT 0,
-        original_month_year TEXT NOT NULL,
         note TEXT,
         timestamp TEXT NOT NULL,
         FOREIGN KEY (month_id) REFERENCES months(id)
@@ -81,6 +80,34 @@ class DbHelper {
         FOREIGN KEY (month_id) REFERENCES months(id)
       )
     ''');
+  }
+
+  // Upgrade from v1 (has is_settled, original_month_year) to v2 (pure notes ledger)
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Recreate ledger table without is_settled and original_month_year
+      await db.execute('ALTER TABLE ledger RENAME TO ledger_old');
+      await db.execute('''
+        CREATE TABLE ledger (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          month_id INTEGER NOT NULL,
+          entity_name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          type TEXT NOT NULL,
+          note TEXT,
+          timestamp TEXT NOT NULL,
+          FOREIGN KEY (month_id) REFERENCES months(id)
+        )
+      ''');
+      // Copy existing data across, dropping settled columns
+      await db.execute('''
+        INSERT INTO ledger (id, month_id, entity_name, amount, type, note, timestamp)
+        SELECT id, month_id, entity_name, amount, type, note, timestamp
+        FROM ledger_old
+        WHERE is_settled = 0
+      ''');
+      await db.execute('DROP TABLE ledger_old');
+    }
   }
 
   // ─── MONTHS ───────────────────────────────────────────────────────────────
@@ -108,6 +135,28 @@ class DbHelper {
         conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
+  Future<void> updateMonthBalance(int id, double newBalance) async {
+    final db = await database;
+    await db.update(
+      'months',
+      {'initial_balance': newBalance},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deleteMonth(int id) async {
+    final db = await database;
+    final classes = await db.query('classes', where: 'month_id = ?', whereArgs: [id]);
+    for (final c in classes) {
+      await db.delete('transactions', where: 'class_id = ?', whereArgs: [c['id']]);
+    }
+    await db.delete('classes', where: 'month_id = ?', whereArgs: [id]);
+    await db.delete('ledger', where: 'month_id = ?', whereArgs: [id]);
+    await db.delete('savings', where: 'month_id = ?', whereArgs: [id]);
+    await db.delete('months', where: 'id = ?', whereArgs: [id]);
+  }
+
   // ─── CLASSES ──────────────────────────────────────────────────────────────
 
   Future<List<ClassModel>> getClassesForMonth(int monthId) async {
@@ -124,6 +173,16 @@ class DbHelper {
   Future<int> insertClass(ClassModel c) async {
     final db = await database;
     return await db.insert('classes', c.toMap());
+  }
+
+  Future<void> updateClassName(int id, String newName) async {
+    final db = await database;
+    await db.update(
+      'classes',
+      {'class_name': newName},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> deleteClass(int classId) async {
@@ -170,6 +229,16 @@ class DbHelper {
     return await db.insert('transactions', t.toMap());
   }
 
+  Future<void> updateTransaction(int id, double amount, String? note, String timestamp) async {
+    final db = await database;
+    await db.update(
+      'transactions',
+      {'amount': amount, 'note': note, 'timestamp': timestamp},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> deleteTransaction(int id) async {
     final db = await database;
     await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
@@ -193,11 +262,17 @@ class DbHelper {
     return await db.insert('ledger', l.toMap());
   }
 
-  Future<void> settleLedger(int id) async {
+  Future<void> updateLedger(int id, String entityName, double amount, String type, String? note, String timestamp) async {
     final db = await database;
     await db.update(
       'ledger',
-      {'is_settled': 1},
+      {
+        'entity_name': entityName,
+        'amount': amount,
+        'type': type,
+        'note': note,
+        'timestamp': timestamp,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -206,42 +281,6 @@ class DbHelper {
   Future<void> deleteLedger(int id) async {
     final db = await database;
     await db.delete('ledger', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<void> carryForwardUnsettledLedger(int currentMonthId, String currentMonthYear) async {
-    final db = await database;
-    // Get all unsettled ledger entries from ALL other months
-    final rows = await db.rawQuery('''
-      SELECT l.* FROM ledger l
-      JOIN months m ON l.month_id = m.id
-      WHERE l.is_settled = 0
-        AND l.month_id != ?
-    ''', [currentMonthId]);
-
-    for (final row in rows) {
-      final originalMonthYear = row['original_month_year'] as String;
-      final entityName = row['entity_name'] as String;
-      final timestamp = row['timestamp'] as String;
-
-      // Check for duplicate
-      final existing = await db.query(
-        'ledger',
-        where: 'month_id = ? AND original_month_year = ? AND entity_name = ? AND timestamp = ?',
-        whereArgs: [currentMonthId, originalMonthYear, entityName, timestamp],
-      );
-      if (existing.isEmpty) {
-        await db.insert('ledger', {
-          'month_id': currentMonthId,
-          'entity_name': entityName,
-          'amount': row['amount'],
-          'type': row['type'],
-          'is_settled': 0,
-          'original_month_year': originalMonthYear,
-          'note': row['note'],
-          'timestamp': timestamp,
-        });
-      }
-    }
   }
 
   // ─── SAVINGS ──────────────────────────────────────────────────────────────
@@ -273,6 +312,16 @@ class DbHelper {
     return await db.insert('savings', s.toMap());
   }
 
+  Future<void> updateSavings(int id, double amount, String? note, String type, String timestamp) async {
+    final db = await database;
+    await db.update(
+      'savings',
+      {'amount': amount, 'note': note, 'type': type, 'timestamp': timestamp},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> deleteSavings(int id) async {
     final db = await database;
     await db.delete('savings', where: 'id = ?', whereArgs: [id]);
@@ -285,11 +334,7 @@ class DbHelper {
     final now = DateTime.now();
     final cutoff = DateTime(now.year, now.month - 11, 1);
 
-
-    // Get months older than 12 months
-    final oldMonths = await db.rawQuery('''
-      SELECT id, month_year FROM months
-    ''');
+    final oldMonths = await db.rawQuery('SELECT id, month_year FROM months');
 
     for (final row in oldMonths) {
       final my = row['month_year'] as String;
@@ -299,20 +344,9 @@ class DbHelper {
         final y = int.tryParse(parts[1]) ?? 0;
         final monthDate = DateTime(y, m, 1);
         if (monthDate.isBefore(cutoff)) {
-          final id = row['id'] as int;
-          // Delete in order: transactions, classes, ledger, savings, months
-          final classes = await db.query('classes', where: 'month_id = ?', whereArgs: [id]);
-          for (final c in classes) {
-            await db.delete('transactions', where: 'class_id = ?', whereArgs: [c['id']]);
-          }
-          await db.delete('classes', where: 'month_id = ?', whereArgs: [id]);
-          await db.delete('ledger', where: 'month_id = ?', whereArgs: [id]);
-          await db.delete('savings', where: 'month_id = ?', whereArgs: [id]);
-          await db.delete('months', where: 'id = ?', whereArgs: [id]);
+          await deleteMonth(row['id'] as int);
         }
       }
     }
-    // suppress unused variable warning
-    
   }
 }
